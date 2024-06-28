@@ -1,3 +1,4 @@
+import random
 import tkinter as tk
 import numpy as np
 from rectpack import newPacker, PackingMode
@@ -53,9 +54,14 @@ def intersection(rect1, rect2):
 
 
 class Cargo:
-    types = {1: {"color": "magenta", "width": 10, "height": 10},
-             2: {"color": "darkblue", "width": 10, "height": 20},
-             3: {"color": "#fefefe", "width": 15, "height": 30}}
+    types = {
+        1: {"color": "magenta", "width": 15, "height": 10, "freq": 0.5},
+        2: {"color": "darkblue", "width": 10, "height": 20, "freq": 0.3},
+        3: {"color": "#fefefe", "width": 15, "height": 30, "freq": 0.19},
+        4: {"color": "gold", "width": 7, "height": 7, "freq": 0.01},
+    }
+    if np.sum([i["freq"] for i in types.values()]) != 1:
+        raise ValueError("frequencies must add up to 1")
 
     def __init__(self, id, parent, port_game, coords, type):
         self.id = id
@@ -74,6 +80,22 @@ class Cargo:
     @property
     def coords(self):
         return self.port_game.canvas.coords(self.area)
+
+    @staticmethod
+    def select_type_based_on_freq(random_float):
+        # Calculate cumulative frequencies
+        cumulative_freq = 0
+        cumulative_distribution = []
+        for key, value in Cargo.types.items():
+            cumulative_freq += value["freq"]
+            cumulative_distribution.append((key, cumulative_freq))
+
+        # Select the type based on the random float
+        for key, cum_freq in cumulative_distribution:
+            if random_float < cum_freq:
+                return key
+
+        return None  # Fallback in case no type is found (shouldn't happen with proper freq values)
 
     def bind_dragging(self):
         self.port_game.canvas.tag_bind(self.area, "<ButtonPress-1>", self.on_drag_start)
@@ -123,7 +145,6 @@ class Cargo:
             else:
                 return None
 
-        print('here')
         self.port_game.canvas.move(self.area, dx, dy)
 
     def on_drag_stop(self, event=None):
@@ -260,9 +281,18 @@ class Lorry(Vehicle):
                   self.port_game.win_h + length)
 
         self.area = self.port_game.canvas.create_rectangle(coords, fill=self.color)
-        self.add_cargo([1, 2, 3])
+        self.add_cargo()
 
-    def add_cargo(self, types):
+    def add_cargo(self):
+        if random.choice([True, False]):
+            # one-type-lorry:
+            types = [Cargo.select_type_based_on_freq(random.random())] * 10
+        else:
+            # mixed lorry
+            types = []
+            for i in range(10):
+                types.append(Cargo.select_type_based_on_freq(random.random()))
+
         packer = newPacker(mode=PackingMode.Online, rotation=True)
         packer.add_bin(self.width, self.length)
 
@@ -358,6 +388,7 @@ class PortGame:
         if (self.lorry_id - 1) in self.lorry_queue:
             if self.lorry_queue[self.lorry_id - 1].coords[3] > self.win_h:
                 self.game_over("Lorry queue is full")
+                return None
         self.lorry_queue[self.lorry_id] = Lorry(self.lorry_id, self, width, length)
         self.lorry_id += 1
         self.root.after(3000, self.create_lorry)

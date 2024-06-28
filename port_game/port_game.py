@@ -1,5 +1,6 @@
 import tkinter as tk
 import numpy as np
+from rectpack import newPacker, PackingMode
 from shapely.geometry import Polygon, MultiPoint, box
 
 
@@ -52,19 +53,22 @@ def intersection(rect1, rect2):
 
 
 class Cargo:
-    def __init__(self, id, parent, port_game, corner, width, height, color):
+    types = {1: {"color": "magenta", "width": 10, "height": 10},
+             2: {"color": "darkblue", "width": 10, "height": 20},
+             3: {"color": "#fefefe", "width": 15, "height": 30}}
+
+    def __init__(self, id, parent, port_game, coords, type):
         self.id = id
         self.parent = parent
         self.port_game = port_game
-        self.width = width
-        self.height = height
-        self.color = color
+        self.type = type
         self.no_drag = False
         self.anchor = None
-        self.area = self.port_game.canvas.create_rectangle(corner[0],
-                                                           corner[1],
-                                                           corner[0] + width,
-                                                           corner[1] + height, fill=self.color)
+        self.area = self.port_game.canvas.create_rectangle(coords[0],
+                                                           coords[1],
+                                                           coords[2],
+                                                           coords[3],
+                                                           fill=Cargo.types[self.type]["color"])
         self.bind_dragging()
 
     @property
@@ -119,6 +123,7 @@ class Cargo:
             else:
                 return None
 
+        print('here')
         self.port_game.canvas.move(self.area, dx, dy)
 
     def on_drag_stop(self, event=None):
@@ -152,6 +157,8 @@ class Cargo:
             return not point_inside_convex_hull((dragged_center_x, dragged_center_y), hull)
         return True
 
+    from shapely.geometry import Polygon, box
+
     def is_collision(self, dx, dy):
 
         def get_canvas_coords(item_id):
@@ -170,7 +177,7 @@ class Cargo:
                 rect_coords = get_canvas_coords(cargo_item.area)
                 if len(rect_coords) == 4:
                     rect = box(rect_coords[0][0], rect_coords[0][1], rect_coords[2][0], rect_coords[2][1])
-                    if rect.intersects(polygon):
+                    if polygon.intersects(rect) and polygon.intersection(rect).area > 0:
                         return True
 
             return False
@@ -183,13 +190,10 @@ class Cargo:
         convex_hull_points = compute_convex_hull(combined_points)
         return convex_hull_overlaps_any_rectangle(convex_hull_points)
 
-    def move(self, dx, dy):
-        self.port_game.canvas.move(self.area, dx, dy)
-
     def sink(self):
         c = self.coords
         if (c[2] - c[0]) > 2:
-            self.port_game.canvas.coords(self.area, c[0], c[1], c[2] - 2, c[3])
+            self.port_game.canvas.coords(self.area, c[0] + 2, c[1], c[2], c[3])
             self.port_game.canvas.after(100, self.sink)
         else:
             self.port_game.canvas.delete(self.area)
@@ -256,13 +260,27 @@ class Lorry(Vehicle):
                   self.port_game.win_h + length)
 
         self.area = self.port_game.canvas.create_rectangle(coords, fill=self.color)
-        self.add_cargo()
+        self.add_cargo([1, 2, 3])
 
-    def add_cargo(self):
-        id = self.port_game.cargo_id
-        self.port_game.cargo[id] = Cargo(id, self, self.port_game, (self.coords[0] + 2, self.coords[1] + 2), 15, 20,
-                                         "magenta")
-        self.port_game.cargo_id += 1
+    def add_cargo(self, types):
+        packer = newPacker(mode=PackingMode.Online, rotation=True)
+        packer.add_bin(self.width, self.length)
+
+        for rect_id, itype in enumerate(types):
+            packer.add_rect(Cargo.types[itype]["width"], Cargo.types[itype]["height"], rect_id)
+        rect_list = packer.rect_list()
+
+        for rect_id, itype in enumerate(types):
+            if not any([rect_id == i[5] for i in rect_list]):
+                continue
+            cargo_id = self.port_game.cargo_id
+            rect = rect_list[[i[5] for i in rect_list].index(rect_id)]
+            cargo_coords = (rect[1] + self.coords[0],
+                            rect[2] + self.coords[1],
+                            rect[1] + rect[3] + self.coords[0],
+                            rect[2] + rect[4] + self.coords[1])
+            self.port_game.cargo[cargo_id] = Cargo(cargo_id, self, self.port_game, cargo_coords, itype)
+            self.port_game.cargo_id += 1
 
     def move(self):
         self.ready_to_leave = len(self.my_cargo) == 0
@@ -335,8 +353,8 @@ class PortGame:
     def create_lorry(self):
         if not self.game_running:
             return
-        width = 30
-        length = 50
+        width = 40
+        length = 60
         if (self.lorry_id - 1) in self.lorry_queue:
             if self.lorry_queue[self.lorry_id - 1].coords[3] > self.win_h:
                 self.game_over("Lorry queue is full")

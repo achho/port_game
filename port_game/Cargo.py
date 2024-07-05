@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 from shapely import Polygon, box
 
@@ -35,11 +37,18 @@ class Cargo:
         return self.port_game.canvas.coords(self.area)
 
     @staticmethod
-    def select_type_based_on_freq(random_float):
+    def select_type_based_on_freq(exclude=None):
+        random_float = random.random()
+        if not exclude:
+            exclude = []
+        random_float *= sum([v["freq"] for i, v in Cargo.types.items() if i not in exclude])
+
         # Calculate cumulative frequencies
         cumulative_freq = 0
         cumulative_distribution = []
         for key, value in Cargo.types.items():
+            if key in exclude:
+                continue
             cumulative_freq += value["freq"]
             cumulative_distribution.append((key, cumulative_freq))
 
@@ -113,7 +122,7 @@ class Cargo:
 
     def will_sink(self):
         supporting_rectangles = [self.port_game.canvas.coords(self.port_game.port.area)] + \
-                                [i.coords for i in self.port_game.ship_queue.values()]
+                                [i.coords for i in self.port_game.ship_queue.values() if i.diff_to_halt < 10]
         dragged_center_x = (self.coords[0] + self.coords[2]) / 2
         dragged_center_y = (self.coords[1] + self.coords[3]) / 2
 
@@ -143,10 +152,12 @@ class Cargo:
         def convex_hull_overlaps_any_rectangle(points):
             polygon = Polygon(points)
 
-            for cargo_item in self.port_game.cargo.values():
-                if cargo_item.id == self.id:
+            for obstacle in list(self.port_game.cargo.values()) + list(self.port_game.ship_queue.values()):
+                if isinstance(obstacle, Cargo) and obstacle.id == self.id:
                     continue
-                rect_coords = get_canvas_coords(cargo_item.area)
+                if isinstance(obstacle, port_game.vehicles.Ship) and obstacle.diff_to_halt < 10 and self.type in obstacle.wishlist:
+                    continue  # allow overlap for loading
+                rect_coords = get_canvas_coords(obstacle.area)
                 if len(rect_coords) == 4:
                     rect = box(rect_coords[0][0], rect_coords[0][1], rect_coords[2][0], rect_coords[2][1])
                     if polygon.intersects(rect) and polygon.intersection(rect).area > 0:

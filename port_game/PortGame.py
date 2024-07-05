@@ -1,5 +1,7 @@
+import random
 import tkinter as tk
 
+import port_game.Cargo
 from port_game.vehicles import Lorry, Ship
 from port_game.Port import Port
 
@@ -54,6 +56,19 @@ class PortGame:
         self.root.after(3000, self.create_lorry)
 
     def create_ship(self):
+        def random_wishlist():
+            rand_type = random.choice([1, 2, 3, 4])  # ship types: accept one type of cargo, two, three, or any
+            out = []
+            if rand_type >= 1:
+                out.append(port_game.Cargo.Cargo.select_type_based_on_freq())
+            if rand_type >= 2:
+                out.append(port_game.Cargo.Cargo.select_type_based_on_freq(exclude=out))
+            if rand_type >= 3:
+                out.append(port_game.Cargo.Cargo.select_type_based_on_freq(exclude=out))
+            if rand_type == 4:
+                out = [i for i in port_game.Cargo.Cargo.types]
+            return sorted(out)
+
         if not self.game_running:
             return
         width = 40
@@ -62,9 +77,12 @@ class PortGame:
             if self.ship_queue[self.ship_id - 1].coords[3] > self.win_h:
                 self.game_over("Ship queue is full")
                 return None
-        self.ship_queue[self.ship_id] = Ship(self.ship_id, self, width, length)
+
+        wishlist = random_wishlist()
+
+        self.ship_queue[self.ship_id] = Ship(self.ship_id, self, width, length, wishlist)
         self.ship_id += 1
-        self.root.after(5000, self.create_ship)
+        self.root.after(10000, self.create_ship)
 
     def update_game(self):
         if not self.game_running:

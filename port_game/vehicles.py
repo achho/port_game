@@ -3,7 +3,8 @@ import random
 import numpy as np
 from rectpack import PackingMode, newPacker
 
-from port_game.Cargo import Cargo
+import port_game.Cargo
+from port_game import Cargo
 
 
 class Vehicle:
@@ -35,6 +36,8 @@ class Vehicle:
         return self.center_h - self.halt_point
 
     def move_vehicle(self, s_or_l):
+        speed = 0
+
         queue = self.port_game.lorry_queue if s_or_l == "l" else self.port_game.ship_queue
         if (self.id - 1) in queue:
             diff_to_vehicle = self.coords[1] - queue[self.id - 1].coords[3]
@@ -51,18 +54,33 @@ class Vehicle:
             speed = max(2, min(5, -self.diff_to_halt / 10))
             if self.ready_to_leave:
                 self.port_game.canvas.move(self.area, 0, -speed)
+            else:
+                return 0
+        return speed
 
 
 class Ship(Vehicle):
-    def __init__(self, id, port_game, width, length):
+    def __init__(self, id, port_game, width, length, wishlist):
         super().__init__(id, port_game, width, length, 'red')
+        self.wishlist = wishlist
         self.ready_to_leave = False
         self.dist_to_port = 5
         self.halt_point = self.port_game.win_h / 2
         self.area = self.port_game.canvas.create_rectangle(self.port_game.port_water_edge + self.dist_to_port,
                                                            self.port_game.win_h,
                                                            self.port_game.port_water_edge + self.dist_to_port + width,
-                                                           self.port_game.win_h + length, fill=self.color)
+                                                           self.port_game.win_h + length,
+                                                           fill=self.color)
+        self.wish_rect= []
+        wish_rect_width = 10
+        for idx, iwish in enumerate(self.wishlist):
+            self.wish_rect.append(self.port_game.canvas.create_rectangle(
+                self.coords[2] + 2 + idx * wish_rect_width,
+                self.center_h,
+                self.coords[2] + 2 + idx * wish_rect_width + wish_rect_width,
+                self.center_h + wish_rect_width,
+                fill=Cargo.Cargo.types[iwish]["color"]
+            ))
 
     def move(self):
         # TODO: implement this
@@ -70,7 +88,9 @@ class Ship(Vehicle):
         time_is_up = False
         user_clicked_go = False
         self.ready_to_leave = no_hanging_cargo and (time_is_up or user_clicked_go)
-        super().move_vehicle("s")
+        speed = super().move_vehicle("s")
+        for i in self.wish_rect:
+            self.port_game.canvas.move(i, 0, -speed)
 
 
 class Lorry(Vehicle):
@@ -92,18 +112,18 @@ class Lorry(Vehicle):
     def add_cargo(self):
         if random.choice([True, False]):
             # one-type-lorry:
-            types = [Cargo.select_type_based_on_freq(random.random())] * 10
+            types = [port_game.Cargo.Cargo.select_type_based_on_freq()] * 10
         else:
             # mixed lorry
             types = []
             for i in range(10):
-                types.append(Cargo.select_type_based_on_freq(random.random()))
+                types.append(port_game.Cargo.Cargo.select_type_based_on_freq())
 
         packer = newPacker(mode=PackingMode.Online, rotation=True)
         packer.add_bin(self.width, self.length)
 
         for rect_id, itype in enumerate(types):
-            packer.add_rect(Cargo.types[itype]["width"], Cargo.types[itype]["height"], rect_id)
+            packer.add_rect(port_game.Cargo.Cargo.types[itype]["width"], port_game.Cargo.Cargo.types[itype]["height"], rect_id)
         rect_list = packer.rect_list()
 
         for rect_id, itype in enumerate(types):
@@ -115,7 +135,7 @@ class Lorry(Vehicle):
                             rect[2] + self.coords[1],
                             rect[1] + rect[3] + self.coords[0],
                             rect[2] + rect[4] + self.coords[1])
-            self.port_game.cargo[cargo_id] = Cargo(cargo_id, self, self.port_game, cargo_coords, itype)
+            self.port_game.cargo[cargo_id] = port_game.Cargo.Cargo(cargo_id, self, self.port_game, cargo_coords, itype)
             self.port_game.cargo_id += 1
 
     def move(self):

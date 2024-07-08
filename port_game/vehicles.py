@@ -32,6 +32,14 @@ class Vehicle:
         return self.port_game.canvas.coords(self.area)
 
     @property
+    def tail(self):
+        return self.coords[3]
+
+    @property
+    def tip(self):
+        return self.coords[1]
+
+    @property
     def diff_to_halt(self):
         return self.center_h - self.halt_point
 
@@ -40,7 +48,7 @@ class Vehicle:
 
         queue = self.port_game.lorry_queue if s_or_l == "l" else self.port_game.ship_queue
         if (self.id - 1) in queue:
-            diff_to_vehicle = self.coords[1] - queue[self.id - 1].coords[3]
+            diff_to_vehicle = self.tip - queue[self.id - 1].tail
             diff_to_next = min(diff_to_vehicle, self.diff_to_halt)
         else:
             diff_to_next = self.diff_to_halt
@@ -71,26 +79,44 @@ class Ship(Vehicle):
                                                            self.port_game.port_water_edge + self.dist_to_port + width,
                                                            self.port_game.win_h + length,
                                                            fill=self.color)
+
+        # wishlist visuals
         self.wish_rect= []
         wish_rect_width = 10
         for idx, iwish in enumerate(self.wishlist):
             self.wish_rect.append(self.port_game.canvas.create_rectangle(
                 self.coords[2] + 2 + idx * wish_rect_width,
-                self.center_h,
+                self.coords[1] + wish_rect_width,
                 self.coords[2] + 2 + idx * wish_rect_width + wish_rect_width,
-                self.center_h + wish_rect_width,
+                self.coords[1],
                 fill=Cargo.Cargo.types[iwish]["color"]
             ))
 
+        # go button
+        self.go_btn = self.port_game.canvas.create_polygon([
+            self.coords[0], self.coords[1],
+            self.coords[2], self.coords[1],
+            (self.coords[2] - self.coords[0]) / 2 + self.coords[0], self.coords[1] - 20
+        ], fill="#16d91c")
+        self.port_game.canvas.tag_bind(self.go_btn, "<ButtonPress-1>", self.go)
+
+    def go(self, event=None):
+        self.ready_to_leave = True
+
     def move(self):
-        # TODO: implement this
+        # TODO: implement not leaving if hanging cargo? Time is up? Can I prevent leaving if time is up if I hang cargo?
         no_hanging_cargo = True
         time_is_up = False
-        user_clicked_go = False
-        self.ready_to_leave = no_hanging_cargo and (time_is_up or user_clicked_go)
+
         speed = super().move_vehicle("s")
+        self.port_game.canvas.move(self.go_btn, 0, -speed)
         for i in self.wish_rect:
             self.port_game.canvas.move(i, 0, -speed)
+
+    @property
+    def tip(self):
+        go_c = self.port_game.canvas.coords(self.go_btn)
+        return go_c[5]
 
 
 class Lorry(Vehicle):

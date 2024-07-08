@@ -65,6 +65,11 @@ class Vehicle:
         if self.diff_to_halt <= 5:
             if self.ready_to_leave:
                 speed = max(2, min(5, -self.diff_to_halt / 10))
+                for cargo_item in self.my_cargo.values():
+                    if s_or_l == "l" and cargo_item.owner == "lorry":
+                        cargo_item.buy(1.2)  # penalty for leaving cargo
+                    elif s_or_l == "s" and cargo_item.owner == "me":
+                        cargo_item.sell(1.2)  # sell for profit
             else:
                 speed = 0
         self.port_game.canvas.move(self.area, 0, -speed)

@@ -10,10 +10,10 @@ from port_game.utils import overlap, compute_convex_hull, intersection, point_in
 
 class Cargo:
     types = {
-        1: {"color": "magenta", "width": 15, "height": 10, "freq": 0.5},
-        2: {"color": "darkblue", "width": 10, "height": 20, "freq": 0.3},
-        3: {"color": "#fefefe", "width": 15, "height": 30, "freq": 0.19},
-        4: {"color": "gold", "width": 7, "height": 7, "freq": 0.01},
+        1: {"color": "magenta", "width": 15, "height": 10, "freq": 0.5, "value": 1 / 0.5},
+        2: {"color": "darkblue", "width": 10, "height": 20, "freq": 0.3, "value": 1 / 0.3},
+        3: {"color": "#fefefe", "width": 15, "height": 30, "freq": 0.19, "value": 1 / 0.19},
+        4: {"color": "gold", "width": 7, "height": 7, "freq": 0.01, "value": 1 / 0.01},
     }
     if np.sum([i["freq"] for i in types.values()]) != 1:
         raise ValueError("frequencies must add up to 1")
@@ -23,8 +23,10 @@ class Cargo:
         self.parent = parent
         self.port_game = port_game
         self.type = type
+        self.value = Cargo.types[self.type]["value"]
         self.no_drag = False
         self.anchor = None
+        self.owner = "lorry"  # could be "me" or "ship"
         self.area = self.port_game.canvas.create_rectangle(coords[0],
                                                            coords[1],
                                                            coords[2],
@@ -87,8 +89,9 @@ class Cargo:
             dy = max(dy, self.parent.coords[1] - self.coords[1])
             if not overlap(self.coords, self.parent.coords):
                 self.parent = self.port_game.port
+                self.buy(1)
         elif isinstance(self.parent, Port):
-            # dont go east of port area
+            # dont go west of port area
             dx = max(dx, self.port_game.land_port_edge - self.coords[0])
 
         while self.is_collision(dx, dy):
@@ -181,3 +184,11 @@ class Cargo:
         else:
             self.port_game.canvas.delete(self.area)
             self.port_game.cargo.pop(self.id)
+
+    def buy(self, factor):
+        self.port_game.money -= self.value * factor
+        self.owner = "me"
+
+    def sell(self, factor):
+        self.port_game.money += self.value * factor
+        self.owner = "ship"

@@ -28,6 +28,10 @@ class PortGame:
         self.port = Port(self)
         self.water = self.canvas.create_rectangle(self.port_water_edge, 0, self.win_w, self.win_h, fill="#365ab4")
 
+        self.money = 1000
+        self.money_text = self.canvas.create_text(50, 50, text=f"{self.money:.2f} $", font=("mono", 16), fill="white",
+                                                  anchor="nw")
+
         self.lorry_queue = {}
         self.ship_queue = {}
         self.cargo = {}
@@ -92,5 +96,7 @@ class PortGame:
 
         for ship in self.ship_queue.values():
             ship.move()
+
+        self.canvas.itemconfig(self.money_text, text=f"{self.money:.2f} $")
 
         self.root.after(50, self.update_game)

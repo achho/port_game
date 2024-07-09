@@ -5,6 +5,7 @@ from rectpack import PackingMode, newPacker
 
 import port_game.Cargo
 from port_game import Cargo
+from port_game.utils import overlap
 
 
 class Vehicle:
@@ -60,22 +61,32 @@ class Vehicle:
         else:
             diff_to_next = self.diff_to_halt
 
-        if diff_to_next > 5:
+        if diff_to_next > 5:  # in vehicle queue
             speed = max(2, min(5, diff_to_next / 10))
-        if self.diff_to_halt <= 5:
-            if self.ready_to_leave:
+        if self.diff_to_halt <= 5:  # in loading position
+            if self.ready_to_leave:  # leaving
                 speed = max(2, min(5, -self.diff_to_halt / 10))
                 for cargo_item in self.my_cargo.values():
                     if s_or_l == "l" and cargo_item.owner == "lorry":
                         cargo_item.buy(1.2)  # penalty for leaving cargo
                     elif s_or_l == "s" and cargo_item.owner == "me":
                         cargo_item.sell(1.2)  # sell for profit
-            else:
+            else:  # staying
                 speed = 0
         self.port_game.canvas.move(self.area, 0, -speed)
         self.port_game.canvas.move(self.go_btn, 0, -speed)
         for cargo_item in self.my_cargo.values():
             self.port_game.canvas.move(cargo_item.area, 0, -speed)
+            if s_or_l == "s" and cargo_item.will_sink():
+                cargo_item.sink()
+                cargo_item.buy(2)
+
+        # sink cargo that overlaps with moving ship if cargo's parent is not the ship itself
+        if s_or_l == "s":
+            for cargo_item in self.port_game.port.my_cargo.values():
+                if overlap(cargo_item.coords, self.coords):
+                    cargo_item.sink()
+
         return speed
 
     def init_go_btn(self, length, color):

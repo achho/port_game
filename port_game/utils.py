@@ -48,3 +48,5 @@ def intersection(rect1, rect2):
         # No intersection
         return None
 
+def rect_size(x0, y0, x1, y1):
+    return abs(x1 - x0) * abs(y1 - y0)

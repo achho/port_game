@@ -5,7 +5,7 @@ from shapely import Polygon, box
 
 import port_game.vehicles
 from port_game.Port import Port
-from port_game.utils import overlap, compute_convex_hull, intersection, point_inside_convex_hull
+from port_game.utils import overlap, compute_convex_hull, intersection, point_inside_convex_hull, rect_size
 
 
 class Cargo:
@@ -26,6 +26,7 @@ class Cargo:
         self.value = Cargo.types[self.type]["value"]
         self.no_drag = False
         self.anchor = None
+        self.status = "dry"  # could be "sinking"
         self.owner = "lorry"  # could be "me" or "ship"
         self.area = self.port_game.canvas.create_rectangle(coords[0],
                                                            coords[1],
@@ -93,7 +94,19 @@ class Cargo:
         elif isinstance(self.parent, Port):
             # dont go west of port area
             dx = max(dx, self.port_game.land_port_edge - self.coords[0])
-
+            for iship in self.port_game.ship_queue.values():
+                ship_overlap = intersection(self.coords, iship.coords)
+                if ship_overlap:
+                    port_overlap = intersection(self.port_game.canvas.coords(self.port_game.port.area), self.coords)
+                    if (not port_overlap) or (rect_size(*ship_overlap) > rect_size(*port_overlap)):
+                        self.parent = iship
+                        break
+        elif isinstance(self.parent, port_game.vehicles.Ship):
+            port_overlap = intersection(self.port_game.canvas.coords(self.port_game.port.area), self.coords)
+            if port_overlap:
+                ship_overlap = intersection(self.parent.coords, self.coords)
+                if (not ship_overlap) or (rect_size(*port_overlap) > rect_size(*ship_overlap)):
+                    self.parent = self.port_game.port
         while self.is_collision(dx, dy):
             if dx > 0 and not self.is_collision(1, 0):
                 self.port_game.canvas.move(self.area, 1, 0)
@@ -176,11 +189,14 @@ class Cargo:
         convex_hull_points = compute_convex_hull(combined_points)
         return convex_hull_overlaps_any_rectangle(convex_hull_points)
 
-    def sink(self):
+    def sink(self, continued=False):
+        if self.status == "sinking" and not continued:
+            return None
+        self.status = "sinking"
         c = self.coords
         if (c[2] - c[0]) > 2:
             self.port_game.canvas.coords(self.area, c[0] + 2, c[1], c[2], c[3])
-            self.port_game.canvas.after(100, self.sink)
+            self.port_game.canvas.after(100, lambda: self.sink(continued=True))
         else:
             self.port_game.canvas.delete(self.area)
             self.port_game.cargo.pop(self.id)

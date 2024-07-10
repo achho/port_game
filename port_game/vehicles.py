@@ -46,9 +46,12 @@ class Vehicle:
     def diff_to_halt(self):
         return self.center_h - self.halt_point
 
+    @property
+    def in_loading_position(self):
+        return abs(self.diff_to_halt) < 10
 
     def go(self, event=None):
-        if self.diff_to_halt < 10:
+        if self.in_loading_position:
             self.ready_to_leave = True
 
     def move_vehicle(self, s_or_l):
@@ -63,12 +66,12 @@ class Vehicle:
 
         if diff_to_next > 5:  # in vehicle queue
             speed = max(2, min(5, diff_to_next / 10))
-        if self.diff_to_halt <= 5:  # in loading position
+        if self.diff_to_halt < 5:  # in loading position or leaving
             if self.ready_to_leave:  # leaving
                 speed = max(2, min(5, -self.diff_to_halt / 10))
                 for cargo_item in self.my_cargo.values():
                     if s_or_l == "l" and cargo_item.owner == "lorry":
-                        cargo_item.buy(1.2)  # penalty for leaving cargo
+                        cargo_item.buy(0.5)  # penalty for leaving cargo
                     elif s_or_l == "s" and cargo_item.owner == "me":
                         cargo_item.sell(1.2)  # sell for profit
             else:  # staying
@@ -76,16 +79,17 @@ class Vehicle:
         self.port_game.canvas.move(self.area, 0, -speed)
         self.port_game.canvas.move(self.go_btn, 0, -speed)
         for cargo_item in self.my_cargo.values():
-            self.port_game.canvas.move(cargo_item.area, 0, -speed)
-            if s_or_l == "s" and cargo_item.will_sink():
+            cargo_item.move(0, -speed)
+            if s_or_l == "s" and cargo_item.will_sink() and speed != 0:
                 cargo_item.sink()
                 cargo_item.buy(2)
 
         # sink cargo that overlaps with moving ship if cargo's parent is not the ship itself
         if s_or_l == "s":
-            for cargo_item in self.port_game.port.my_cargo.values():
-                if overlap(cargo_item.coords, self.coords):
-                    cargo_item.sink()
+            if not self.in_loading_position:
+                for cargo_item in self.port_game.port.my_cargo.values():
+                    if overlap(cargo_item.coords, self.coords):
+                        cargo_item.sink()
 
         return speed
 

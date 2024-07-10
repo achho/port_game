@@ -1,4 +1,5 @@
 import random
+import time
 
 import numpy as np
 from shapely import Polygon, box
@@ -33,6 +34,7 @@ class Cargo:
                                                            coords[2],
                                                            coords[3],
                                                            fill=Cargo.types[self.type]["color"])
+        self.money_animation = None
         self.bind_dragging()
 
     @property
@@ -69,7 +71,7 @@ class Cargo:
 
     def on_drag_start(self, event):
         if isinstance(self.parent, port_game.vehicles.Lorry):
-            if self.parent.diff_to_halt > 5:
+            if not self.parent.in_loading_position:
                 self.no_drag = True
                 return  # no unloading before parked
         self.no_drag = False
@@ -109,21 +111,26 @@ class Cargo:
                     self.parent = self.port_game.port
         while self.is_collision(dx, dy):
             if dx > 0 and not self.is_collision(1, 0):
-                self.port_game.canvas.move(self.area, 1, 0)
+                self.move(1, 0)
                 dx -= 1
             elif dx < 0 and not self.is_collision(-1, 0):
-                self.port_game.canvas.move(self.area, -1, 0)
+                self.move(-1, 0)
                 dx += 1
             elif dy > 0 and not self.is_collision(0, 1):
-                self.port_game.canvas.move(self.area, 0, 1)
+                self.move(0, 1)
                 dy -= 1
             elif dy < 0 and not self.is_collision(0, -1):
-                self.port_game.canvas.move(self.area, 0, -1)
+                self.move(0, -1)
                 dy += 1
             else:
                 return None
 
+        self.move(dx, dy)
+
+    def move(self, dx, dy):
         self.port_game.canvas.move(self.area, dx, dy)
+        if self.money_animation:
+            self.port_game.canvas.move(self.money_animation, dx, dy)
 
     def on_drag_stop(self, event=None):
 
@@ -138,7 +145,7 @@ class Cargo:
 
     def will_sink(self):
         supporting_rectangles = [self.port_game.canvas.coords(self.port_game.port.area)] + \
-                                [i.coords for i in self.port_game.ship_queue.values() if i.diff_to_halt < 10]
+                                [i.coords for i in self.port_game.ship_queue.values() if (i.in_loading_position or i == self.parent)]
         dragged_center_x = (self.coords[0] + self.coords[2]) / 2
         dragged_center_y = (self.coords[1] + self.coords[3]) / 2
 
@@ -171,7 +178,7 @@ class Cargo:
             for obstacle in list(self.port_game.cargo.values()) + list(self.port_game.ship_queue.values()):
                 if isinstance(obstacle, Cargo) and obstacle.id == self.id:
                     continue
-                if isinstance(obstacle, port_game.vehicles.Ship) and obstacle.diff_to_halt < 10 and self.type in obstacle.wishlist:
+                if isinstance(obstacle, port_game.vehicles.Ship) and obstacle.in_loading_position and self.type in obstacle.wishlist:
                     continue  # allow overlap for loading
                 rect_coords = get_canvas_coords(obstacle.area)
                 if len(rect_coords) == 4:
@@ -201,10 +208,33 @@ class Cargo:
             self.port_game.canvas.delete(self.area)
             self.port_game.cargo.pop(self.id)
 
+    def init_money_animation(self, price):
+        self.money_animation = self.port_game.canvas.create_text(self.coords[2] + 2, self.coords[1] - 2,
+                                          text=f"{round(price)} $",
+                                          fill="light green" if price >=0 else "red",
+                                          font=("mono", 16),
+                                          anchor="sw")
+        self.port_game.root.after(500, self.lessen_money_animation)
+
+    def lessen_money_animation(self):
+        font = self.port_game.canvas.itemcget(self.money_animation, "font")
+        font_size = font.split()[1]
+        new_font = (font[0], int(font_size) - 2)
+        if new_font[1] <= 5:
+            self.port_game.canvas.delete(self.money_animation)
+            self.money_animation = None
+            return None
+        self.port_game.canvas.itemconfig(self.money_animation, font=new_font)
+        self.port_game.root.after(300, self.lessen_money_animation)
+
     def buy(self, factor):
-        self.port_game.money -= self.value * factor
+        price = self.value * factor
+        self.port_game.money -= price
         self.owner = "me"
+        self.init_money_animation(-price)
 
     def sell(self, factor):
-        self.port_game.money += self.value * factor
+        price = self.value * factor
+        self.port_game.money += price
         self.owner = "ship"
+        self.init_money_animation(price)

@@ -91,7 +91,21 @@ class Vehicle:
                     if overlap(cargo_item.coords, self.coords):
                         cargo_item.sink()
 
+        # destroy vehicle
+        if abs(self.tail < 5):
+            if s_or_l == "s":
+                self.port_game.ship_delete_queue.append(self.id)
+            else:
+                self.port_game.lorry_delete_queue.append(self.id)
+
         return speed
+
+    def destroy(self):
+        self.port_game.canvas.delete(self.area)
+        self.port_game.canvas.delete(self.go_btn)
+        for id, icargo in self.my_cargo.items():
+            self.port_game.canvas.delete(icargo.area)
+            self.port_game.cargo.pop(id)
 
     def init_go_btn(self, length, color):
         self.go_btn = self.port_game.canvas.create_polygon([
@@ -129,6 +143,11 @@ class Ship(Vehicle):
         super().init_go_btn(20, "#16d91c")
         self.port_game.canvas.tag_bind(self.go_btn, "<ButtonPress-1>", self.go)
 
+    def destroy(self):
+        for iwish in self.wish_rect:
+            self.port_game.canvas.delete(iwish)
+        super().destroy()
+        self.port_game.ship_queue.pop(self.id)
 
     def move(self):
         # TODO: implement not leaving if hanging cargo? Time is up? Can I prevent leaving if time is up if I hang cargo?
@@ -191,3 +210,7 @@ class Lorry(Vehicle):
         if len(self.my_cargo) == 0:
             self.ready_to_leave = True
         super().move_vehicle("l")
+
+    def destroy(self):
+        super().destroy()
+        self.port_game.lorry_queue.pop(self.id)

@@ -11,10 +11,10 @@ from port_game.utils import overlap, compute_convex_hull, intersection, point_in
 
 class Cargo:
     types = {
-        1: {"color": "magenta", "width": 15, "height": 10, "freq": 0.5, "value": 1 / 0.5},
-        2: {"color": "darkblue", "width": 10, "height": 20, "freq": 0.3, "value": 1 / 0.3},
-        3: {"color": "#fefefe", "width": 15, "height": 30, "freq": 0.19, "value": 1 / 0.19},
-        4: {"color": "gold", "width": 7, "height": 7, "freq": 0.01, "value": 1 / 0.01},
+        1: {"color": "magenta", "width": 20, "height": 15, "freq": 0.5, "value": 1 / 0.5},
+        2: {"color": "darkblue", "width": 25, "height": 25, "freq": 0.3, "value": 1 / 0.3},
+        3: {"color": "#fefefe", "width": 20, "height": 35, "freq": 0.19, "value": 1 / 0.19},
+        4: {"color": "gold", "width": 10, "height": 10, "freq": 0.01, "value": 1 / 0.01},
     }
     if np.sum([i["freq"] for i in types.values()]) != 1:
         raise ValueError("frequencies must add up to 1")

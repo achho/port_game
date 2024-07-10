@@ -187,7 +187,7 @@ class Cargo:
                 rect_coords = get_canvas_coords(obstacle.area)
                 if len(rect_coords) == 4:
                     rect = box(rect_coords[0][0], rect_coords[0][1], rect_coords[2][0], rect_coords[2][1])
-                    if polygon.intersects(rect) and polygon.intersection(rect).area > 0:
+                    if polygon.intersection(rect).area > 0:
                         return True
 
             return False

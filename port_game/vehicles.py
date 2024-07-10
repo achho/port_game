@@ -103,9 +103,8 @@ class Vehicle:
     def destroy(self):
         self.port_game.canvas.delete(self.area)
         self.port_game.canvas.delete(self.go_btn)
-        for id, icargo in self.my_cargo.items():
-            self.port_game.canvas.delete(icargo.area)
-            self.port_game.cargo.pop(id)
+        for icargo in self.my_cargo.values():
+            icargo.destroy()
 
     def init_go_btn(self, length, color):
         self.go_btn = self.port_game.canvas.create_polygon([

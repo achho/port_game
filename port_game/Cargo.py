@@ -209,10 +209,12 @@ class Cargo:
             self.port_game.canvas.coords(self.area, c[0] + 2, c[1], c[2], c[3])
             self.port_game.canvas.after(100, lambda: self.sink(continued=True))
         else:
-            self.port_game.canvas.delete(self.area)
-            self.port_game.cargo.pop(self.id)
+            self.destroy()
 
     def init_text_animation(self, text, color):
+        if self.text_animation:
+            self.port_game.canvas.delete(self.text_animation)
+            self.text_animation = None
         self.text_animation = self.port_game.canvas.create_text(self.coords[2] + 2, self.coords[1] - 2,
                                           text=text,
                                           fill=color,
@@ -221,6 +223,8 @@ class Cargo:
         self.port_game.root.after(500, self.lessen_text_animation)
 
     def lessen_text_animation(self):
+        if not self.text_animation:
+            return None  # could be when init was called again but lessen has been scheduled
         font = self.port_game.canvas.itemcget(self.text_animation, "font")
         font_size = font.split()[1]
         new_font = (font[0], int(font_size) - 2)
@@ -242,3 +246,7 @@ class Cargo:
         self.port_game.money += price
         self.owner = "ship"
         self.init_text_animation(f"{round(-price)} $", "green")
+
+    def destroy(self):
+        self.port_game.canvas.delete(self.area)
+        self.port_game.cargo.pop(self.id)

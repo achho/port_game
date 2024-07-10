@@ -16,8 +16,8 @@ class PortGame:
     cargo_id = 0
 
     fail_on_ship_queue_full = False
-    fail_on_lorry_queue_full = True
-    fail_on_no_money = False
+    fail_on_lorry_queue_full = False
+    fail_on_no_money = True
 
     def __init__(self, root):
         self.game_running = True
@@ -32,7 +32,7 @@ class PortGame:
         self.port = Port(self)
         self.water = self.canvas.create_rectangle(self.port_water_edge, 0, self.win_w, self.win_h, fill="#365ab4")
 
-        self.money = 1000
+        self.money = 10
         self.money_text = self.canvas.create_text(50, 50, text=f"{round(self.money)} $", font=("mono", 16), fill="white",
                                                   anchor="nw")
 
@@ -102,7 +102,7 @@ class PortGame:
         for ship in self.ship_queue.values():
             ship.move()
 
-        if self.fail_on_no_money and self.money < 0:
+        if self.fail_on_no_money and self.money < 0 and not self.port.my_cargo:
             self.game_over("You are broke")
         self.canvas.itemconfig(self.money_text, text=f"{round(self.money)} $")
 

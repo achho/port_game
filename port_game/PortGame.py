@@ -112,7 +112,6 @@ class PortGame:
         for ship in self.ship_queue.values():
             ship.move()
 
-        print(any(i.my_cargo for i in self.ship_queue.values()))
         if self.fail_on_no_money and self.money < 0 and not self.port.my_cargo and not any(i.my_cargo for i in self.ship_queue.values()):
             self.game_over("You are broke")
         self.canvas.itemconfig(self.money_text, text=f"{round(self.money)} $")

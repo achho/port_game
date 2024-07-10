@@ -34,7 +34,7 @@ class Cargo:
                                                            coords[2],
                                                            coords[3],
                                                            fill=Cargo.types[self.type]["color"])
-        self.money_animation = None
+        self.text_animation = None
         self.bind_dragging()
 
     @property
@@ -74,6 +74,10 @@ class Cargo:
             if not self.parent.in_loading_position:
                 self.no_drag = True
                 return  # no unloading before parked
+            if self.port_game.money < self.value:
+                self.no_drag = True
+                self.init_text_animation("Not enough money", "red")
+                return  # no money to buy
         self.no_drag = False
         self.anchor = (event.x - self.coords[0], event.y - self.coords[1])
 
@@ -129,8 +133,8 @@ class Cargo:
 
     def move(self, dx, dy):
         self.port_game.canvas.move(self.area, dx, dy)
-        if self.money_animation:
-            self.port_game.canvas.move(self.money_animation, dx, dy)
+        if self.text_animation:
+            self.port_game.canvas.move(self.text_animation, dx, dy)
 
     def on_drag_stop(self, event=None):
 
@@ -208,33 +212,33 @@ class Cargo:
             self.port_game.canvas.delete(self.area)
             self.port_game.cargo.pop(self.id)
 
-    def init_money_animation(self, price):
-        self.money_animation = self.port_game.canvas.create_text(self.coords[2] + 2, self.coords[1] - 2,
-                                          text=f"{round(price)} $",
-                                          fill="light green" if price >=0 else "red",
+    def init_text_animation(self, text, color):
+        self.text_animation = self.port_game.canvas.create_text(self.coords[2] + 2, self.coords[1] - 2,
+                                          text=text,
+                                          fill=color,
                                           font=("mono", 16),
                                           anchor="sw")
-        self.port_game.root.after(500, self.lessen_money_animation)
+        self.port_game.root.after(500, self.lessen_text_animation)
 
-    def lessen_money_animation(self):
-        font = self.port_game.canvas.itemcget(self.money_animation, "font")
+    def lessen_text_animation(self):
+        font = self.port_game.canvas.itemcget(self.text_animation, "font")
         font_size = font.split()[1]
         new_font = (font[0], int(font_size) - 2)
         if new_font[1] <= 5:
-            self.port_game.canvas.delete(self.money_animation)
-            self.money_animation = None
+            self.port_game.canvas.delete(self.text_animation)
+            self.text_animation = None
             return None
-        self.port_game.canvas.itemconfig(self.money_animation, font=new_font)
-        self.port_game.root.after(300, self.lessen_money_animation)
+        self.port_game.canvas.itemconfig(self.text_animation, font=new_font)
+        self.port_game.root.after(300, self.lessen_text_animation)
 
     def buy(self, factor):
         price = self.value * factor
         self.port_game.money -= price
         self.owner = "me"
-        self.init_money_animation(-price)
+        self.init_text_animation(f"{round(-price)} $", "red")
 
     def sell(self, factor):
         price = self.value * factor
         self.port_game.money += price
         self.owner = "ship"
-        self.init_money_animation(price)
+        self.init_text_animation(f"{round(-price)} $", "green")

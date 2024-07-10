@@ -15,6 +15,10 @@ class PortGame:
     ship_id = 0
     cargo_id = 0
 
+    fail_on_ship_queue_full = False
+    fail_on_lorry_queue_full = True
+    fail_on_no_money = False
+
     def __init__(self, root):
         self.game_running = True
 
@@ -42,9 +46,8 @@ class PortGame:
         self.update_game()
 
     def game_over(self, message):
-        pass
-        # print(message)
-        # self.game_running = False
+        self.canvas.create_text(self.win_w / 2, self.win_h / 2, text=f"Game over: {message}", fill="red", font=("mono", 28))
+        self.game_running = False
 
     def create_lorry(self):
         if not self.game_running:
@@ -53,8 +56,9 @@ class PortGame:
         length = 60
         if (self.lorry_id - 1) in self.lorry_queue:
             if self.lorry_queue[self.lorry_id - 1].coords[3] > self.win_h:
-                self.game_over("Lorry queue is full")
-                return None
+                if self.fail_on_lorry_queue_full:
+                    self.game_over("Lorry queue is full")
+                return None  # don't create lorry
         self.lorry_queue[self.lorry_id] = Lorry(self.lorry_id, self, width, length)
         self.lorry_id += 1
         self.root.after(3000, self.create_lorry)
@@ -79,8 +83,9 @@ class PortGame:
         length = 80
         if (self.ship_id - 1) in self.ship_queue:
             if self.ship_queue[self.ship_id - 1].coords[3] > self.win_h:
-                self.game_over("Ship queue is full")
-                return None
+                if self.fail_on_ship_queue_full:
+                    self.game_over("Ship queue is full")
+                return None  # don't create ship
 
         wishlist = random_wishlist()
 
@@ -97,6 +102,8 @@ class PortGame:
         for ship in self.ship_queue.values():
             ship.move()
 
+        if self.fail_on_no_money and self.money < 0:
+            self.game_over("You are broke")
         self.canvas.itemconfig(self.money_text, text=f"{round(self.money)} $")
 
         self.root.after(50, self.update_game)

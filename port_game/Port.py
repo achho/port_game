@@ -1,3 +1,5 @@
+from shapely import box
+
 
 class Port:
     def __init__(self, port_game):
@@ -9,3 +11,11 @@ class Port:
     @property
     def my_cargo(self):
         return {key: value for key, value in self.port_game.cargo.items() if type(value.parent) == type(self)}
+
+    @property
+    def box(self):
+        return box(*self.port_game.canvas.coords(self.area))
+
+    @property
+    def box_bounds(self):
+        return self.box.bounds

@@ -2,10 +2,11 @@ import random
 
 import numpy as np
 from rectpack import PackingMode, newPacker
+from shapely import box
 
 import port_game.Cargo
 from port_game import Cargo
-from port_game.utils import overlap
+from port_game.utils import do_overlap
 
 
 class Vehicle:
@@ -27,15 +28,19 @@ class Vehicle:
 
     @property
     def center_h(self):
-        return np.mean([self.coords[3], self.coords[1]])
+        return np.mean([self.box_bounds[3], self.box_bounds[1]])
 
     @property
-    def coords(self):
-        return self.port_game.canvas.coords(self.area)
+    def box(self):
+        return box(*self.port_game.canvas.coords(self.area))
+
+    @property
+    def box_bounds(self):
+        return self.box.bounds
 
     @property
     def tail(self):
-        return self.coords[3]
+        return self.box_bounds[3]
 
     @property
     def tip(self):
@@ -88,7 +93,7 @@ class Vehicle:
         if s_or_l == "s":
             if not self.in_loading_position:
                 for cargo_item in self.port_game.port.my_cargo.values():
-                    if overlap(cargo_item.coords, self.coords):
+                    if do_overlap(cargo_item.box, self.box):
                         cargo_item.sink()
 
         # destroy vehicle
@@ -108,9 +113,9 @@ class Vehicle:
 
     def init_go_btn(self, length, color):
         self.go_btn = self.port_game.canvas.create_polygon([
-            self.coords[0], self.coords[1],
-            self.coords[2], self.coords[1],
-            (self.coords[2] - self.coords[0]) / 2 + self.coords[0], self.coords[1] - length
+            self.box_bounds[0], self.box_bounds[1],
+            self.box_bounds[2], self.box_bounds[1],
+            (self.box_bounds[2] - self.box_bounds[0]) / 2 + self.box_bounds[0], self.box_bounds[1] - length
         ], fill=color)
 
 
@@ -132,10 +137,10 @@ class Ship(Vehicle):
         wish_rect_width = 10
         for idx, iwish in enumerate(self.wishlist):
             self.wish_rect.append(self.port_game.canvas.create_rectangle(
-                self.coords[2] + 2 + idx * wish_rect_width,
-                self.coords[1] + wish_rect_width,
-                self.coords[2] + 2 + idx * wish_rect_width + wish_rect_width,
-                self.coords[1],
+                self.box_bounds[2] + 2 + idx * wish_rect_width,
+                self.box_bounds[1] + wish_rect_width,
+                self.box_bounds[2] + 2 + idx * wish_rect_width + wish_rect_width,
+                self.box_bounds[1],
                 fill=Cargo.Cargo.types[iwish]["color"]
             ))
 
@@ -198,10 +203,10 @@ class Lorry(Vehicle):
                 continue
             cargo_id = self.port_game.cargo_id
             rect = rect_list[[i[5] for i in rect_list].index(rect_id)]
-            cargo_coords = (rect[1] + self.coords[0],
-                            rect[2] + self.coords[1],
-                            rect[1] + rect[3] + self.coords[0],
-                            rect[2] + rect[4] + self.coords[1])
+            cargo_coords = (rect[1] + self.box_bounds[0],
+                            rect[2] + self.box_bounds[1],
+                            rect[1] + rect[3] + self.box_bounds[0],
+                            rect[2] + rect[4] + self.box_bounds[1])
             self.port_game.cargo[cargo_id] = port_game.Cargo.Cargo(cargo_id, self, self.port_game, cargo_coords, itype)
             self.port_game.cargo_id += 1
 

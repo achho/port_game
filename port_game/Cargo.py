@@ -1,12 +1,11 @@
 import random
-import time
 
 import numpy as np
 from shapely import Polygon, box
 
 import port_game.vehicles
 from port_game.Port import Port
-from port_game.utils import overlap, compute_convex_hull, intersection, point_inside_convex_hull, rect_size
+from port_game.utils import do_overlap, compute_convex_hull, point_inside_convex_hull
 
 
 class Cargo:
@@ -38,8 +37,12 @@ class Cargo:
         self.bind_dragging()
 
     @property
-    def coords(self):
-        return self.port_game.canvas.coords(self.area)
+    def box(self):
+        return box(*self.port_game.canvas.coords(self.area))
+
+    @property
+    def box_bounds(self):
+        return self.box.bounds
 
     @staticmethod
     def select_type_based_on_freq(exclude=None):
@@ -79,7 +82,7 @@ class Cargo:
                 self.init_text_animation("Not enough money", "red")
                 return  # no money to buy
         self.no_drag = False
-        self.anchor = (event.x - self.coords[0], event.y - self.coords[1])
+        self.anchor = (event.x - self.box_bounds[0], event.y - self.box_bounds[1])
 
     def on_drag_move(self, event):
         if self.no_drag:
@@ -87,31 +90,31 @@ class Cargo:
 
         self.port_game.canvas.tag_raise(self.area)  # stay on top of everything
 
-        dx = event.x - self.coords[0] - self.anchor[0]
-        dy = event.y - self.coords[1] - self.anchor[1]
+        dx = event.x - self.box_bounds[0] - self.anchor[0]
+        dy = event.y - self.box_bounds[1] - self.anchor[1]
 
         if isinstance(self.parent, port_game.vehicles.Lorry):
-            dx = max(dx, self.parent.coords[0] - self.coords[0])
-            dy = min(dy, self.parent.coords[3] - self.coords[3])
-            dy = max(dy, self.parent.coords[1] - self.coords[1])
-            if not overlap(self.coords, self.parent.coords):
+            dx = max(dx, self.parent.box_bounds[0] - self.box_bounds[0])
+            dy = min(dy, self.parent.box_bounds[3] - self.box_bounds[3])
+            dy = max(dy, self.parent.box_bounds[1] - self.box_bounds[1])
+            if not do_overlap(self.box, self.parent.box):
                 self.parent = self.port_game.port
                 self.buy(1)
         elif isinstance(self.parent, Port):
             # dont go west of port area
-            dx = max(dx, self.port_game.land_port_edge - self.coords[0])
+            dx = max(dx, self.port_game.land_port_edge - self.box_bounds[0])
             for iship in self.port_game.ship_queue.values():
-                ship_overlap = intersection(self.coords, iship.coords)
-                if ship_overlap:
-                    port_overlap = intersection(self.port_game.canvas.coords(self.port_game.port.area), self.coords)
-                    if (not port_overlap) or (rect_size(*ship_overlap) > rect_size(*port_overlap)):
+                ship_overlap = self.box.intersection(iship.box)
+                if ship_overlap.area > 0:
+                    port_overlap = self.port_game.port.box.intersection(self.box)
+                    if (not port_overlap) or (ship_overlap.area > port_overlap.area):
                         self.parent = iship
                         break
         elif isinstance(self.parent, port_game.vehicles.Ship):
-            port_overlap = intersection(self.port_game.canvas.coords(self.port_game.port.area), self.coords)
+            port_overlap = self.port_game.port.box.intersection(self.box)
             if port_overlap:
-                ship_overlap = intersection(self.parent.coords, self.coords)
-                if (not ship_overlap) or (rect_size(*port_overlap) > rect_size(*ship_overlap)):
+                ship_overlap = self.parent.box.intersection(self.box)
+                if (not ship_overlap) or (port_overlap.area > ship_overlap.area):
                     self.parent = self.port_game.port
         while self.is_collision(dx, dy):
             if dx > 0 and not self.is_collision(1, 0):
@@ -148,19 +151,18 @@ class Cargo:
             # TODO: if now not completely in ship, parent = port
 
     def will_sink(self):
-        supporting_rectangles = [self.port_game.canvas.coords(self.port_game.port.area)] + \
-                                [i.coords for i in self.port_game.ship_queue.values() if (i.in_loading_position or i == self.parent)]
-        dragged_center_x = (self.coords[0] + self.coords[2]) / 2
-        dragged_center_y = (self.coords[1] + self.coords[3]) / 2
-
+        supporting_rectangles = [self.port_game.port.box] + \
+                                [i.box for i in self.port_game.ship_queue.values() if (i.in_loading_position or i == self.parent)]
+        dragged_center_x = (self.box_bounds[0] + self.box_bounds[2]) / 2
+        dragged_center_y = (self.box_bounds[1] + self.box_bounds[3]) / 2
         intersect_points = []
         for i in supporting_rectangles:
-            intersect = intersection(i, self.coords)
-            if intersect:
-                intersect_points.append((intersect[0], intersect[1]))
-                intersect_points.append((intersect[2], intersect[1]))
-                intersect_points.append((intersect[2], intersect[3]))
-                intersect_points.append((intersect[0], intersect[3]))
+            intersect = i.intersection(self.box)
+            if intersect.area > 0:
+                intersect_points.append((intersect.bounds[0], intersect.bounds[1]))
+                intersect_points.append((intersect.bounds[2], intersect.bounds[1]))
+                intersect_points.append((intersect.bounds[2], intersect.bounds[3]))
+                intersect_points.append((intersect.bounds[0], intersect.bounds[3]))
 
         if intersect_points:
             hull = compute_convex_hull(intersect_points)
@@ -192,10 +194,10 @@ class Cargo:
 
             return False
 
-        combined_points = [(self.coords[0], self.coords[1]), (self.coords[2], self.coords[1]),
-                           (self.coords[2], self.coords[3]), (self.coords[0], self.coords[3]),
-                           (self.coords[0] + dx, self.coords[1] + dy), (self.coords[2] + dx, self.coords[1] + dy),
-                           (self.coords[2] + dx, self.coords[3] + dy), (self.coords[0] + dx, self.coords[3] + dy)]
+        combined_points = [(self.box_bounds[0], self.box_bounds[1]), (self.box_bounds[2], self.box_bounds[1]),
+                           (self.box_bounds[2], self.box_bounds[3]), (self.box_bounds[0], self.box_bounds[3]),
+                           (self.box_bounds[0] + dx, self.box_bounds[1] + dy), (self.box_bounds[2] + dx, self.box_bounds[1] + dy),
+                           (self.box_bounds[2] + dx, self.box_bounds[3] + dy), (self.box_bounds[0] + dx, self.box_bounds[3] + dy)]
 
         convex_hull_points = compute_convex_hull(combined_points)
         return convex_hull_overlaps_any_rectangle(convex_hull_points)
@@ -204,7 +206,7 @@ class Cargo:
         if self.status == "sinking" and not continued:
             return None
         self.status = "sinking"
-        c = self.coords
+        c = self.box_bounds
         if (c[2] - c[0]) > 2:
             self.port_game.canvas.coords(self.area, c[0] + 2, c[1], c[2], c[3])
             self.port_game.canvas.after(100, lambda: self.sink(continued=True))
@@ -215,11 +217,11 @@ class Cargo:
         if self.text_animation:
             self.port_game.canvas.delete(self.text_animation)
             self.text_animation = None
-        self.text_animation = self.port_game.canvas.create_text(self.coords[2] + 2, self.coords[1] - 2,
-                                          text=text,
-                                          fill=color,
-                                          font=("mono", 16),
-                                          anchor="sw")
+        self.text_animation = self.port_game.canvas.create_text(self.box_bounds[2] + 2, self.box_bounds[1] - 2,
+                                                                text=text,
+                                                                fill=color,
+                                                                font=("mono", 16),
+                                                                anchor="sw")
         self.port_game.root.after(500, self.lessen_text_animation)
 
     def lessen_text_animation(self):

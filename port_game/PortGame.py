@@ -59,7 +59,7 @@ class PortGame:
         width = 40
         length = 60
         queue_is_full = (self.lorry_id - 1) in self.lorry_queue and \
-            self.lorry_queue[self.lorry_id - 1].coords[3] > self.win_h
+                        self.lorry_queue[self.lorry_id - 1].box_bounds[3] > self.win_h
         if queue_is_full and self.fail_on_lorry_queue_full:
             self.game_over("Lorry queue is full")
         if not queue_is_full:
@@ -86,7 +86,7 @@ class PortGame:
             return
         width = 70
         length = 100
-        queue_is_full = (self.ship_id - 1) in self.ship_queue and self.ship_queue[self.ship_id - 1].coords[
+        queue_is_full = (self.ship_id - 1) in self.ship_queue and self.ship_queue[self.ship_id - 1].box_bounds[
             3] > self.win_h
         if queue_is_full and self.fail_on_ship_queue_full:
             self.game_over("Ship queue is full")

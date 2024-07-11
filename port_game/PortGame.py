@@ -95,7 +95,7 @@ class PortGame:
             self.ship_queue[self.ship_id] = Ship(self.ship_id, self, width, length, wishlist)
             self.ship_id += 1
 
-        when_next = max(1000, round(random.gauss(700, 700)))
+        when_next = max(1000, round(random.gauss(25000, 25000)))
         self.root.after(when_next, self.create_ship)
 
     def update_game(self):

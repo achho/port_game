@@ -11,10 +11,10 @@ from port_game.utils import do_overlap, compute_convex_hull, point_inside_convex
 
 class Cargo:
     types = {
-        1: {"color": "magenta", "width": 20, "height": 15, "freq": 0.5, "value": 1 / 0.5},
-        2: {"color": "darkblue", "width": 25, "height": 25, "freq": 0.3, "value": 1 / 0.3},
-        3: {"color": "#fefefe", "width": 20, "height": 35, "freq": 0.19, "value": 1 / 0.19},
-        4: {"color": "gold", "width": 10, "height": 10, "freq": 0.01, "value": 1 / 0.01},
+        1: {"color": "magenta", "width": 20, "height": 15, "freq": 0.5, "value": 4 / 0.5},
+        2: {"color": "darkblue", "width": 25, "height": 25, "freq": 0.3, "value": 4 / 0.3},
+        3: {"color": "#fefefe", "width": 20, "height": 35, "freq": 0.19, "value": 4 / 0.19},
+        4: {"color": "gold", "width": 10, "height": 10, "freq": 0.01, "value": 4 / 0.01},
     }
     if np.sum([i["freq"] for i in types.values()]) != 1:
         raise ValueError("frequencies must add up to 1")
@@ -142,16 +142,13 @@ class Cargo:
 
     def on_drag_stop(self, event=None):
 
-        if isinstance(self.parent, Port):
+        if isinstance(self.parent, Port) or isinstance(self.parent, port_game.vehicles.Ship):
             if self.will_sink():
                 self.sink()
 
-            # TODO: if now completely in ship that is accepting, parent = ship
-        elif isinstance(self.parent, port_game.vehicles.Ship):
-            pass
-            # TODO: if now not completely in ship, parent = port
-
     def will_sink(self):
+        if self.status == "sinking":
+            return False  # no need to compute anything anymore
         supporting_rectangles = [self.port_game.port.box] + \
                                 [i.box for i in self.port_game.ship_queue.values() if (i.in_loading_position or i == self.parent)]
         dragged_center_x = (self.box_bounds[0] + self.box_bounds[2]) / 2
@@ -238,7 +235,7 @@ class Cargo:
         price = self.value * factor
         self.port_game.money += price
         self.owner = "ship"
-        self.init_text_animation(f"{round(-price)} $", "green")
+        self.init_text_animation(f"{round(price)} $", "green")
 
     def destroy(self):
         self.port_game.canvas.delete(self.area)

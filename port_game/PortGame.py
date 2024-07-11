@@ -1,4 +1,5 @@
 import random
+import time
 import tkinter as tk
 
 import port_game.Cargo
@@ -34,6 +35,10 @@ class PortGame:
 
         self.money = 1000
         self.money_text = self.canvas.create_text(50, 50, text=f"{round(self.money)} $", font=("mono", 16),
+                                                  fill="white",
+                                                  anchor="nw")
+        self.t0 = time.time()
+        self.time_text = self.canvas.create_text(50, 70, text="0 s", font=("mono", 16),
                                                   fill="white",
                                                   anchor="nw")
 
@@ -119,5 +124,10 @@ class PortGame:
                 i.my_cargo for i in self.ship_queue.values()):
             self.game_over("You are broke")
         self.canvas.itemconfig(self.money_text, text=f"{round(self.money)} $")
+        self.canvas.itemconfig(self.time_text, text=f"{round(self.elapsed_time)} s")
 
         self.root.after(50, self.update_game)
+
+    @property
+    def elapsed_time(self):
+        return time.time() - self.t0

@@ -6,7 +6,7 @@ from shapely.affinity import translate
 
 import port_game.vehicles
 from port_game.Port import Port
-from port_game.utils import do_overlap, compute_convex_hull, point_inside_convex_hull
+from port_game.utils import do_overlap, compute_convex_hull, point_inside_convex_hull, init_text_animation
 
 
 class Cargo:
@@ -201,41 +201,17 @@ class Cargo:
         else:
             self.destroy()
 
-    def init_text_animation(self, text, color):
-        if self.text_animation:
-            self.port_game.canvas.delete(self.text_animation)
-            self.text_animation = None
-        self.text_animation = self.port_game.canvas.create_text(self.box_bounds[2] + 2, self.box_bounds[1] - 2,
-                                                                text=text,
-                                                                fill=color,
-                                                                font=("mono", 16),
-                                                                anchor="sw")
-        self.port_game.root.after(500, self.lessen_text_animation)
-
-    def lessen_text_animation(self):
-        if not self.text_animation:
-            return None  # could be when init was called again but lessen has been scheduled
-        font = self.port_game.canvas.itemcget(self.text_animation, "font")
-        font_size = font.split()[1]
-        new_font = (font[0], int(font_size) - 2)
-        if new_font[1] <= 5:
-            self.port_game.canvas.delete(self.text_animation)
-            self.text_animation = None
-            return None
-        self.port_game.canvas.itemconfig(self.text_animation, font=new_font)
-        self.port_game.root.after(300, self.lessen_text_animation)
-
     def buy(self, factor):
         price = self.value * factor
         self.port_game.money -= price
         self.owner = "me"
-        self.init_text_animation(f"{round(-price)} $", "red")
+        self.text_animation = init_text_animation(self.text_animation, self.port_game, self.box_bounds[2] + 2, self.box_bounds[1] - 2, f"{round(-price)} $", "red")
 
     def sell(self, factor):
         price = self.value * factor
         self.port_game.money += price
         self.owner = "ship"
-        self.init_text_animation(f"{round(price)} $", "green")
+        self.text_animation = init_text_animation(self.text_animation, self.port_game, self.box_bounds[2] + 2, self.box_bounds[1] - 2, f"{round(price)} $", "green")
 
     def destroy(self):
         self.port_game.canvas.delete(self.area)

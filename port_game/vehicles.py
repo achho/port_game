@@ -6,7 +6,7 @@ from shapely import box
 
 import port_game.Cargo
 from port_game import Cargo
-from port_game.utils import do_overlap
+from port_game.utils import do_overlap, init_text_animation
 
 
 class Vehicle:
@@ -63,6 +63,7 @@ class Vehicle:
         speed = 0
 
         queue = self.port_game.lorry_queue if s_or_l == "l" else self.port_game.ship_queue
+        delete_queue = self.port_game.lorry_delete_queue if s_or_l == "l" else self.port_game.ship_delete_queue
         if (self.id - 1) in queue:
             diff_to_vehicle = self.tip - queue[self.id - 1].tail
             diff_to_next = min(diff_to_vehicle, self.diff_to_halt)
@@ -81,27 +82,15 @@ class Vehicle:
                         cargo_item.sell(1.2)  # sell for profit
             else:  # staying
                 speed = 0
+
         self.port_game.canvas.move(self.area, 0, -speed)
         self.port_game.canvas.move(self.go_btn, 0, -speed)
         for cargo_item in self.my_cargo.values():
             cargo_item.move(0, -speed)
-            if s_or_l == "s" and cargo_item.will_sink() and speed != 0:
-                cargo_item.sink()
-                cargo_item.buy(2)
-
-        # sink cargo that overlaps with moving ship if cargo's parent is not the ship itself
-        if s_or_l == "s":
-            if not self.in_loading_position:
-                for cargo_item in self.port_game.port.my_cargo.values():
-                    if do_overlap(cargo_item.box, self.box):
-                        cargo_item.sink()
 
         # destroy vehicle
         if abs(self.tail < 5):
-            if s_or_l == "s":
-                self.port_game.ship_delete_queue.append(self.id)
-            else:
-                self.port_game.lorry_delete_queue.append(self.id)
+            delete_queue.append(self.id)
 
         return speed
 
@@ -126,6 +115,8 @@ class Ship(Vehicle):
         self.ready_to_leave = False
         self.dist_to_port = 5
         self.halt_point = self.port_game.win_h / 2
+        self.waiting = False
+        self.text_animation = None
         self.area = self.port_game.canvas.create_rectangle(self.port_game.port_water_edge + self.dist_to_port,
                                                            self.port_game.win_h,
                                                            self.port_game.port_water_edge + self.dist_to_port + width,
@@ -154,14 +145,35 @@ class Ship(Vehicle):
         self.port_game.ship_queue.pop(self.id)
 
     def move(self):
-        # TODO: implement not leaving if hanging cargo? Time is up? Can I prevent leaving if time is up if I hang cargo?
-        no_hanging_cargo = True
-        time_is_up = False
-
         speed = super().move_vehicle("s")
         for i in self.wish_rect:
             self.port_game.canvas.move(i, 0, -speed)
 
+        # sink cargo that overlaps with moving ship if cargo's parent is not the ship itself
+        if not self.in_loading_position:
+            for cargo_item in self.port_game.port.my_cargo.values():
+                if do_overlap(cargo_item.box, self.box):
+                    cargo_item.sink()
+
+        if speed == 0 and not self.waiting:
+            # start waiting
+            self.waiting = True
+            tolerance = 10000 if self.in_loading_position else 0
+            self.port_game.root.after(tolerance, self.charge_waiting)
+        if abs(speed) > 0:
+            # quit waiting
+            self.waiting = False
+
+    def charge_waiting(self):
+        if not self.waiting:
+            return None
+        cost = 1
+        self.port_game.money -= cost
+        self.port_game.root.after(2000, self.charge_waiting)
+        self.text_animation = init_text_animation(self.text_animation,
+                                                  self.port_game,
+                                                  self.box_bounds[2] + 2, self.box_bounds[1] - 2,
+                                                  f"{-cost} $", "red")
 
 class Lorry(Vehicle):
     def __init__(self, id, port_game, width, length):

@@ -2,6 +2,7 @@ import random
 
 import numpy as np
 from shapely import Polygon, box
+from shapely.affinity import translate
 
 import port_game.vehicles
 from port_game.Port import Port
@@ -171,13 +172,6 @@ class Cargo:
 
     def is_collision(self, dx, dy):
 
-        def get_canvas_coords(item_id):
-            coords = self.port_game.canvas.coords(item_id)
-            if len(coords) == 4:
-                return [(coords[0], coords[1]), (coords[2], coords[1]), (coords[2], coords[3]), (coords[0], coords[3])]
-            else:
-                return []
-
         def convex_hull_overlaps_any_rectangle(points):
             polygon = Polygon(points)
 
@@ -186,18 +180,15 @@ class Cargo:
                     continue
                 if isinstance(obstacle, port_game.vehicles.Ship) and obstacle.in_loading_position and self.type in obstacle.wishlist:
                     continue  # allow overlap for loading
-                rect_coords = get_canvas_coords(obstacle.area)
-                if len(rect_coords) == 4:
-                    rect = box(rect_coords[0][0], rect_coords[0][1], rect_coords[2][0], rect_coords[2][1])
-                    if polygon.intersection(rect).area > 0:
-                        return True
+                if polygon.intersection(obstacle.box).area > 0:
+                    return True
 
             return False
 
-        combined_points = [(self.box_bounds[0], self.box_bounds[1]), (self.box_bounds[2], self.box_bounds[1]),
-                           (self.box_bounds[2], self.box_bounds[3]), (self.box_bounds[0], self.box_bounds[3]),
-                           (self.box_bounds[0] + dx, self.box_bounds[1] + dy), (self.box_bounds[2] + dx, self.box_bounds[1] + dy),
-                           (self.box_bounds[2] + dx, self.box_bounds[3] + dy), (self.box_bounds[0] + dx, self.box_bounds[3] + dy)]
+        orig_points = self.box.exterior.coords[:-1]
+        shifted_points = translate(self.box, xoff=dx, yoff=dy).exterior.coords[:-1]
+
+        combined_points = list(orig_points) + list(shifted_points)
 
         convex_hull_points = compute_convex_hull(combined_points)
         return convex_hull_overlaps_any_rectangle(convex_hull_points)
